@@ -1,6 +1,8 @@
 {
+  "name": "membrane-timers",
+  "description": "Ergonomic API to define timers' start time and interval, with support for calendar math. Based on luxon.",
+  "version": "0.0.1",
   "dependencies": {
-    "date-fns": "^1.29.0",
     "luxon": "^1.4.3"
   }
 }

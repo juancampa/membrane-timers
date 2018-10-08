@@ -2,6 +2,7 @@ const { DateTime, Duration } = require('luxon');
 const _ZERO = '0'.charCodeAt(0);
 const _NINE = '9'.charCodeAt(0);
 
+// Helper function that finds the last number in a string
 function findLastNumber(str) {
   for (let i = str.length - 1; i >= 0; --i) {
     const code = str.charCodeAt(i);
@@ -17,6 +18,7 @@ function isNumber(str) {
   return !isNaN(parseFloat(str)) && isFinite(str);
 }
 
+// Possible week days representations
 const weekdays = {
   monday: 1, mon: 1,
   tuesday: 2, tue: 2, tues: 2,
@@ -27,6 +29,7 @@ const weekdays = {
   sunday: 7, sun: 7,
 };
 
+// Possible month representations
 const months = {
   january: 1, jan: 1,
   february: 2, feb: 2,
@@ -43,20 +46,37 @@ const months = {
 };
 
 const hms = (hour, minute, second) => ({ hour, minute, second, millisecond: 0 });
-const outOfRange = () => { throw new Error('Time out of rage') };
 const ymd = (year, month, day) => ({ year, month, day });
+const outOfRange = () => { throw new Error('Time out of rage') };
 
-const order = ['year', 'month', 'day', 'hour', 'minute', 'second', 'millisecond'];
+// Order that determines significance of units
+const keyOrder = ['year', 'month', 'day', 'hour', 'minute', 'second', 'millisecond'];
+
+// Give a DateTime spec object, generates an object that matches the spec but
+// bound to the future  by increasing the element one greater than the greater
+// specified. If the spec specifies a day, but that the is in the pass, increase
+// the month by one from the current time.
 const inTheFuture = (spec) => {
   const now = DateTime.local();
   const date = DateTime.fromObject(spec);
   if (date < now && spec.year === undefined) {
-    for (let i = 0; i < order.length; ++i) {
-      const key = order[i];
+    for (let i = 0; i < keyOrder.length; ++i) {
+      const key = keyOrder[i];
       if (spec[key]) {
         return {
           ...spec,
-          [order[i - 1]]: now[order[i - 1]] + 1,
+          [keyOrder[i - 1]]: now[keyOrder[i - 1]] + 1,
+        }
+      }
+
+      // Weekdays are handled differently
+      if (key === 'day') {
+        if (spec['weekday']) {
+          return {
+            ...spec,
+            weekday: undefined,
+            day: date.day + 7,
+          };
         }
       }
     }
@@ -65,7 +85,7 @@ const inTheFuture = (spec) => {
 }
 
 function parseTimeOfDay(str) {
-  const matches = str.match(/^(\d{1,2})(?::?(\d{1,2}))?(?::?(\d{1,2}))?(am|pm)$/);
+  const matches = str.match(/^(\d{1,2})(?::?(\d{1,2}))?(?::?(\d{1,2}))?(am|pm)?$/);
   if (!matches) {
     return null;
   }
@@ -94,13 +114,10 @@ function parseTimeOfDay(str) {
   }
 
   // 24h
-  // if (h === 24) {
-  //   if (m 
-  //   return { hours: 24 };
-  // }
-  // if (h <= 24 && h >= 0) {
-  //   return { hours: pm ? h + 12 : h, minutes: m };
-  // }
+  if (h > 23 || h < 0) {
+    outOfRange();
+  }
+  return hms(h, m, s);
 }
 
 function toDateTimeSpec(str) {
@@ -168,48 +185,41 @@ function toDuration(str) {
     throw new Error('Expected an object or string');
   }
 
+  // Try to parse <value><unit>
   const lastNumber = findLastNumber(str);
   let value = 1;
   if (lastNumber >= 0) {
     value = str.substr(0, lastNumber + 1);
-    if (!isNumber(value)) {
-      throw new Error('Expected time string to have the format "<value><unit>"');
+    if (isNumber(value)) {
+      let key = str.substr(lastNumber + 1).trim();
+      if (/^[a-z]+$/.test(key)) {
+        // Allow abbreviations
+        if (key === 'mo') {
+          key = 'months';
+        } else if (key === 'w') {
+          key = 'weeks';
+        } else if (key === 'd') {
+          key = 'days';
+        } else if (key === 'h') {
+          key = 'hours';
+        } else if (key === 'min' || key === 'mins') {
+          key = 'minutes';
+        } else if (key === 'sec' || key === 'secs' || key === 's') {
+          key = 'seconds';
+        } else if (key === 'msec' || key === 'ms') {
+          key = 'milliseconds';
+        } else if (key === 'm') {
+          throw new Error(`Ambiguous duration unit "m"`);
+        }
+        return Duration.fromObject({ [key]: parseFloat(value) });
+      }
     }
   }
-  let key = str.substr(lastNumber + 1).trim();
-  if (!/^[a-z]+$/.test(key)) {
-    throw new Error('Expected time string to have the format "<value><unit>"');
-  }
-
-  // Allow abbreviations
-  if (key === 'mo') {
-    key = 'months';
-  } else if (key === 'w') {
-    key = 'weeks';
-  } else if (key === 'd') {
-    key = 'days';
-  } else if (key === 'h') {
-    key = 'hours';
-  } else if (key === 'min' || key === 'mins') {
-    key = 'minutes';
-  } else if (key === 'sec' || key === 'secs' || key === 's') {
-    key = 'seconds';
-  } else if (key === 'msec' || key === 'ms') {
-    key = 'milliseconds';
-  }
-
-  return Duration.fromObject({ [key]: parseFloat(value) });
+  return Duration.fromISO(str);
 }
 
-module.exports.toDuration = toDuration;
-
+// Used to create timers
 class Scheduler {
-  in(duration) {
-    const t = DateTime.local()
-      .plus(toDuration(duration)).toObject();
-    return new Timer(t);
-  }
-
   on(datetime) {
     const spec = toDateTimeSpec(datetime);
     return new Timer(spec);
@@ -220,29 +230,32 @@ class Scheduler {
   }
 
   now() {
-    return DateTime.local();
+    return new Timer(DateTime.local().toObject());
   }
 }
 
-exports.scheduler = new Scheduler();
-
+// Merges two DateTime specs and makes sure they don't contradict each other
 const merge = (a, b) => {
+  if (!a) {
+    return { ... b };
+  }
   for (let k of Object.keys(b)) {
-    if (a[k]) {
+    if (a[k] && a[k] !== b[k]) {
       throw new Error(`More than one value specified for timer's ${k}`);
     }
   }
   return { ...a, ...b };
 }
 
+// Timer without a repeat interval
 class Timer {
-  constructor(time, offset = []) {
+  constructor(time, offsets = []) {
     this.time = time;
-    this.offset = offset;
+    this.offsets = offsets;
   }
 
   on(datetime) {
-    return new Timer(merge(this.time, toDateTimeSpec(datetime)));
+    return new Timer(merge(this.time, toDateTimeSpec(datetime)), this.offsets);
   }
 
   at(datetime) {
@@ -250,27 +263,42 @@ class Timer {
   }
 
   plus(duration) {
-    const t = DateTime.fromObject(inTheFuture(this.time));
-    return new Timer(t.plus(toDuration(duration)).toObject());
+    const offset = toDuration(duration);
+    return new Timer(this.time, [...this.offsets, offset]);
   }
 
   minus(duration) {
-    const t = DateTime.fromObject(inTheFuture(this.time));
-    return new Timer(t.minus(toDuration(duration)).toObject());
+    const offset = toDuration(duration).negate();
+    return new Timer(this.time, [...this.offsets, offset]);
   }
 
   every(duration) {
-    return new RepeatTimer(this.time, [toDuration(duration)]);
+    return new RepeatTimer(this._collapseTime(), [toDuration(duration)]);
+  }
+
+  _collapseTime() {
+    let time = this.time ? DateTime.fromObject(inTheFuture(this.time)) : DateTime.local();
+    for (let offset of this.offsets) {
+      time = time.plus(offset);
+    }
+    if (time.invalid !== null) {
+      throw new Error('Invalid time: ' + time.invalid);
+    }
+    return time;
   }
 
   call(fn) {
     return global.scheduleTimer({
-      time: DateTime.fromObject(inTheFuture(this.time)).toISO(),
+      time: this._collapseTime().toISO(),
       handler: fn,
     });
   }
 }
 
+// Timer with a repreat interval. Intervals are stored as a list of durations
+// which are meant to be evaluated every time the timer fires to calculate the
+// next occurrance. This allows us to use calendar math (e.g. every week, every
+// month, every month minus one day, etc);
 class RepeatTimer {
   constructor(time, interval) {
     this.time = time;
@@ -296,6 +324,6 @@ class RepeatTimer {
   }
 }
 
-global.scheduleTimer = (spec) => {
-  console.log(spec);
-};
+exports.scheduler = new Scheduler();
+exports.DateTime = DateTime;
+exports.Duration = Duration;
