@@ -218,22 +218,6 @@ function toDuration(str) {
   return Duration.fromISO(str);
 }
 
-// Used to create timers
-class Scheduler {
-  on(datetime) {
-    const spec = toDateTimeSpec(datetime);
-    return new Timer(spec);
-  }
-
-  at(datetime) {
-    return this.on(datetime);
-  }
-
-  now() {
-    return new Timer(DateTime.local().toObject());
-  }
-}
-
 // Merges two DateTime specs and makes sure they don't contradict each other
 const merge = (a, b) => {
   if (!a) {
@@ -324,6 +308,16 @@ class RepeatTimer {
   }
 }
 
-exports.scheduler = new Scheduler();
-exports.DateTime = DateTime;
-exports.Duration = Duration;
+module.exports = {
+  on: (datetime) => {
+    const spec = toDateTimeSpec(datetime);
+    return new Timer(spec);
+  },
+  at: (datetime) => {
+    const spec = toDateTimeSpec(datetime);
+    return new Timer(spec);
+  },
+  now: () => new Timer(DateTime.local().toObject()),
+  DateTime: DateTime,
+  Duration: Duration,
+};
