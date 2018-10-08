@@ -1,7 +1,7 @@
 {
   "name": "@membrane/timers",
   "description": "Ergonomic API to define timers by their time+interval. Supports calendar math. Based on luxon.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "dependencies": {
     "luxon": "^1.4.3"
   }
