@@ -62,7 +62,7 @@ const inTheFuture = (spec) => {
   if (date < now && spec.year === undefined) {
     for (let i = 0; i < keyOrder.length; ++i) {
       const key = keyOrder[i];
-      if (spec[key]) {
+      if (spec[key] !== undefined) {
         return {
           ...spec,
           [keyOrder[i - 1]]: now[keyOrder[i - 1]] + 1,
@@ -218,6 +218,29 @@ function toDuration(str) {
   return Duration.fromISO(str);
 }
 
+// Used to create timers
+class Scheduler {
+  constructor(setTimer) {
+    this.DateTime = DateTime;
+    this.Duration = Duration;
+    this.setTimer = setTimer;
+  }
+
+  on(datetime) {
+    const spec = toDateTimeSpec(datetime);
+    return new Timer(spec, [], this.setTimer);
+  }
+
+  at(datetime) {
+    const spec = toDateTimeSpec(datetime);
+    return new Timer(spec, [], this.setTimer);
+  }
+
+  now() {
+    return new Timer(DateTime.local().toObject(), [], this.setTimer);
+  }
+}
+
 // Merges two DateTime specs and makes sure they don't contradict each other
 const merge = (a, b) => {
   if (!a) {
@@ -233,31 +256,36 @@ const merge = (a, b) => {
 
 // Timer without a repeat interval
 class Timer {
-  constructor(time, offsets = []) {
+  constructor(time, offsets = [], setTimer) {
     this.time = time;
     this.offsets = offsets;
+    this.setTimer = setTimer;
+  }
+
+  clone(time, offsets) {
+    return new Timer(time || this.time, offsets || this.offsets, this.setTimer)
   }
 
   on(datetime) {
-    return new Timer(merge(this.time, toDateTimeSpec(datetime)), this.offsets);
+    return this.clone(merge(this.time, toDateTimeSpec(datetime)))
   }
 
   at(datetime) {
-    return this.on(datetime);
+    return this.clone(merge(this.time, toDateTimeSpec(datetime)))
   }
 
   plus(duration) {
     const offset = toDuration(duration);
-    return new Timer(this.time, [...this.offsets, offset]);
+    return this.clone(this.time, [...this.offsets, offset]);
   }
 
   minus(duration) {
     const offset = toDuration(duration).negate();
-    return new Timer(this.time, [...this.offsets, offset]);
+    return this.clone(this.time, [...this.offsets, offset]);
   }
 
   every(duration) {
-    return new RepeatTimer(this._collapseTime(), [toDuration(duration)]);
+    return new RepeatTimer(this._collapseTime(), [toDuration(duration)], this.setTimer);
   }
 
   _collapseTime() {
@@ -271,10 +299,11 @@ class Timer {
     return time;
   }
 
-  call(fn) {
-    return global.scheduleTimer({
+  call(handler, args) {
+    return this.setTimer({
       time: this._collapseTime().toISO(),
-      handler: fn,
+      handler,
+      args,
     });
   }
 }
@@ -284,40 +313,32 @@ class Timer {
 // next occurrance. This allows us to use calendar math (e.g. every week, every
 // month, every month minus one day, etc);
 class RepeatTimer {
-  constructor(time, interval) {
+  constructor(time, offsets, setTimer) {
     this.time = time;
-    this.interval = interval;
+    this.offsets = offsets;
+    this.setTimer = setTimer;
+  }
+
+  clone(time, offsets) {
+    return new RepeatTimer(time || this.time, offsets || this.offsets, this.setTimer)
   }
 
   plus(duration) {
-    const interval = [...this.interval, toDuration(duration)];
-    return new RepeatTimer(this.time, interval)
+    return this.clone(this.time, [...this.offsets, toDuration(duration)]);
   }
 
   minus(duration) {
-    const interval = [...this.interval, toDuration(duration).negate()];
-    return new RepeatTimer(this.time, interval)
+    return this.clone(this.time, [...this.offsets, toDuration(duration).negate()]);
   }
 
-  call(fn) {
-    return global.scheduleTimer({
-      time: this.time.toJSON(),
-      interval: this.interval.map((i) => i.toJSON()),
-      handler: fn,
+  call(handler, args) {
+    return this.setTimer({
+      time: this.time.toISO(),
+      intervalOffsets: this.offsets.map((i) => i.toJSON()),
+      handler,
+      args,
     });
   }
 }
 
-module.exports = {
-  on: (datetime) => {
-    const spec = toDateTimeSpec(datetime);
-    return new Timer(spec);
-  },
-  at: (datetime) => {
-    const spec = toDateTimeSpec(datetime);
-    return new Timer(spec);
-  },
-  now: () => new Timer(DateTime.local().toObject()),
-  DateTime: DateTime,
-  Duration: Duration,
-};
+exports.Scheduler = Scheduler;
