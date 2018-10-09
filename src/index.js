@@ -11,7 +11,7 @@ function findLastNumber(str) {
     }
   }
   return -1;
-};
+}
 
 // Taken from https://stackoverflow.com/a/1830632/653799
 function isNumber(str) {
@@ -35,7 +35,7 @@ const months = {
   february: 2, feb: 2,
   march: 3, mar: 3,
   april: 4, apr: 4,
-  may: 5, may: 5,
+  may: 5,
   june: 6, jun: 6,
   july: 7, jul: 7,
   august: 8, aug: 8,
@@ -47,7 +47,7 @@ const months = {
 
 const hms = (hour, minute, second) => ({ hour, minute, second, millisecond: 0 });
 const ymd = (year, month, day) => ({ year, month, day });
-const outOfRange = () => { throw new Error('Time out of rage') };
+const outOfRange = () => { throw new Error('Time out of rage'); };
 
 // Order that determines significance of units
 const keyOrder = ['year', 'month', 'day', 'hour', 'minute', 'second', 'millisecond'];
@@ -66,7 +66,7 @@ const inTheFuture = (spec) => {
         return {
           ...spec,
           [keyOrder[i - 1]]: now[keyOrder[i - 1]] + 1,
-        }
+        };
       }
 
       // Weekdays are handled differently
@@ -81,8 +81,8 @@ const inTheFuture = (spec) => {
       }
     }
   }
-  return spec
-}
+  return spec;
+};
 
 function parseTimeOfDay(str) {
   const matches = str.match(/^(\d{1,2})(?::?(\d{1,2}))?(?::?(\d{1,2}))?(am|pm)?$/);
@@ -90,9 +90,9 @@ function parseTimeOfDay(str) {
     return null;
   }
   let [, h, m, s, p] = matches;
-  h = h && parseInt(h);
-  m = m ? parseInt(m) : 0;
-  s = s ? parseInt(s) : 0;
+  h = h && parseInt(h, 10);
+  m = m ? parseInt(m, 10) : 0;
+  s = s ? parseInt(s, 10) : 0;
   if (m < 0 || m > 59) {
     outOfRange();
   }
@@ -136,7 +136,7 @@ function toDateTimeSpec(str) {
 
   const yearMatch = str.match(/^\d{4}$/);
   if (yearMatch) {
-    return { year: parseInt(str) };
+    return { year: parseInt(str, 10) };
   }
 
   // Parse year/month/day (e.g. 5/20, May/20, may/20, may-20, 2010-5/20)
@@ -145,7 +145,7 @@ function toDateTimeSpec(str) {
     let [, y, m, d] = ymdMatch;
     const isNumMonth = /^\d{1,2}$/.test(m);
     if (isNumMonth) {
-      m = parseInt(m);
+      m = parseInt(m, 10);
       if (m < 1 || m > 12) {
         throw new Error('Month out of range');
       }
@@ -154,15 +154,14 @@ function toDateTimeSpec(str) {
     } else {
       throw new Error('Invalid month');
     }
-    const now = DateTime.local();
-    d = parseInt(d);
-    y = y ? parseInt(y) : undefined;
+    d = parseInt(d, 10);
+    y = y ? parseInt(y, 10) : undefined;
     return ymd(y, m, d);
   }
 
   const month = months[str];
   if (month) {
-    return { month, day };
+    return { month };
   }
 
   const timeOfDay = parseTimeOfDay(str);
@@ -171,10 +170,6 @@ function toDateTimeSpec(str) {
   }
 
   return DateTime.fromISO(str).toObject();
-}
-
-function toDateTime(str, base) {
-  return base.set(toDateTimeSpec(str));
 }
 
 function toDuration(str) {
@@ -252,7 +247,7 @@ const merge = (a, b) => {
     }
   }
   return { ...a, ...b };
-}
+};
 
 // Timer without a repeat interval
 class Timer {
@@ -263,15 +258,15 @@ class Timer {
   }
 
   clone(time, offsets) {
-    return new Timer(time || this.time, offsets || this.offsets, this.setTimer)
+    return new Timer(time || this.time, offsets || this.offsets, this.setTimer);
   }
 
   on(datetime) {
-    return this.clone(merge(this.time, toDateTimeSpec(datetime)))
+    return this.clone(merge(this.time, toDateTimeSpec(datetime)));
   }
 
   at(datetime) {
-    return this.clone(merge(this.time, toDateTimeSpec(datetime)))
+    return this.clone(merge(this.time, toDateTimeSpec(datetime)));
   }
 
   plus(duration) {
@@ -301,7 +296,7 @@ class Timer {
 
   call(handler, args) {
     return this.setTimer({
-      time: this._collapseTime().toISO(),
+      time: this._collapseTime().toUTC().toISO(),
       handler,
       args,
     });
@@ -320,7 +315,7 @@ class RepeatTimer {
   }
 
   clone(time, offsets) {
-    return new RepeatTimer(time || this.time, offsets || this.offsets, this.setTimer)
+    return new RepeatTimer(time || this.time, offsets || this.offsets, this.setTimer);
   }
 
   plus(duration) {
@@ -333,7 +328,7 @@ class RepeatTimer {
 
   call(handler, args) {
     return this.setTimer({
-      time: this.time.toISO(),
+      time: this.time.toUTC().toISO(),
       intervalOffsets: this.offsets.map((i) => i.toJSON()),
       handler,
       args,
