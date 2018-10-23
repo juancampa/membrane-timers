@@ -1,7 +1,7 @@
 {
   "name": "@membrane/timers",
   "description": "Ergonomic API to define timers by their time+interval. Supports calendar math. Based on luxon.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "src",
   "dependencies": {
     "babel-jest": "^23.6.0",
