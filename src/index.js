@@ -45,6 +45,19 @@ const months = {
   december: 12, dec: 12,
 };
 
+const durationUnits = {
+  millisecond: 'milliseconds',
+  msec: 'milliseconds', ms: 'milliseconds',
+  second: 'seconds', seconds: 'seconds', sec: 'seconds', secs: 'seconds', s: 'seconds',
+  min: 'minute', mins: 'minutes', minute: 'minutes', minutes: 'minutes', m: 'minutes',
+  hour: 'hours', hours: 'hours', h: 'hour',
+  day: 'days', days: 'days', d: 'days',
+  week: 'weeks', weeks: 'weeks', w: 'weeks',
+  mo: 'months', mon: 'months', month: 'months', months: 'months',
+  quarters: 'quarters', quarter: 'quarters', q: 'quarters',
+  years: 'years', year: 'years', y: 'years',
+};
+
 const hms = (hour, minute, second) => ({ hour, minute, second, millisecond: 0 });
 const ymd = (year, month, day) => ({ year, month, day });
 const outOfRange = () => { throw new Error('Time out of rage'); };
@@ -189,24 +202,12 @@ function toDuration(str) {
       let key = str.substr(lastNumber + 1).trim();
       if (/^[a-z]+$/.test(key)) {
         // Allow abbreviations
-        if (key === 'mo') {
-          key = 'months';
-        } else if (key === 'w') {
-          key = 'weeks';
-        } else if (key === 'd') {
-          key = 'days';
-        } else if (key === 'h') {
-          key = 'hours';
-        } else if (key === 'min' || key === 'mins') {
-          key = 'minutes';
-        } else if (key === 'sec' || key === 'secs' || key === 's') {
-          key = 'seconds';
-        } else if (key === 'msec' || key === 'ms') {
-          key = 'milliseconds';
-        } else if (key === 'm') {
-          throw new Error(`Ambiguous duration unit "m"`);
+        const unit = durationUnits[key];
+        if (!unit) {
+          throw new Error(`Invalid unit "${key}"`);
         }
-        return Duration.fromObject({ [key]: parseFloat(value) });
+
+        return Duration.fromObject({ [unit]: parseFloat(value) });
       }
     }
   }
@@ -234,6 +235,14 @@ class Scheduler {
   now() {
     return new Timer(DateTime.local().toObject(), [], this.setTimer);
   }
+
+  after(duration) {
+    return this.now().plus(duration);
+  }
+
+  every(duration) {
+    return this.after(duration).every(duration);
+  }
 }
 
 // Merges two DateTime specs and makes sure they don't contradict each other
@@ -257,30 +266,32 @@ class Timer {
     this.setTimer = setTimer;
   }
 
-  clone(time, offsets) {
-    return new Timer(time || this.time, offsets || this.offsets, this.setTimer);
+  get triggerTime() {
+    return this._collapseTime().toUTC().toISO();
+  }
+
+  clone(change) {
+    return Object.assign(new Timer(), this, change);
   }
 
   on(datetime) {
-    return this.clone(merge(this.time, toDateTimeSpec(datetime)));
+    return this.clone({ time: merge(this.time, toDateTimeSpec(datetime)) });
   }
 
   at(datetime) {
-    return this.clone(merge(this.time, toDateTimeSpec(datetime)));
+    return this.clone({ time: merge(this.time, toDateTimeSpec(datetime)) });
   }
 
   plus(duration) {
-    const offset = toDuration(duration);
-    return this.clone(this.time, [...this.offsets, offset]);
+    return this.clone({ offsets: [...this.offsets, toDuration(duration)] });
   }
 
   minus(duration) {
-    const offset = toDuration(duration).negate();
-    return this.clone(this.time, [...this.offsets, offset]);
+    return this.clone({ offsets: [...this.offsets, toDuration(duration).negate()] });
   }
 
   every(duration) {
-    return new RepeatTimer(this._collapseTime(), [toDuration(duration)], this.setTimer);
+    return new RepeatTimer(this._collapseTime(), [toDuration(duration)], this.setTimer, this.key);
   }
 
   _collapseTime() {
@@ -294,11 +305,16 @@ class Timer {
     return time;
   }
 
-  call(handler, args) {
+  withKey(key) {
+    return this.clone({ key });
+  }
+
+  call(handlerName, context) {
     return this.setTimer({
-      time: this._collapseTime().toUTC().toISO(),
-      handler,
-      args,
+      key: this.key,
+      delay: (this._collapseTime().toMillis() - DateTime.local().toMillis()) / 1000,
+      handlerName,
+      context,
     });
   }
 }
@@ -308,30 +324,36 @@ class Timer {
 // next occurrance. This allows us to use calendar math (e.g. every week, every
 // month, every month minus one day, etc);
 class RepeatTimer {
-  constructor(time, offsets, setTimer) {
+  constructor(time, offsets, setTimer, key) {
     this.time = time;
     this.offsets = offsets;
     this.setTimer = setTimer;
+    this.key = key;
   }
 
-  clone(time, offsets) {
-    return new RepeatTimer(time || this.time, offsets || this.offsets, this.setTimer);
+  clone(change) {
+    return Object.assign(new RepeatTimer(), this, change);
   }
 
   plus(duration) {
-    return this.clone(this.time, [...this.offsets, toDuration(duration)]);
+    return this.clone({ offsets: [...this.offsets, toDuration(duration)] });
   }
 
   minus(duration) {
-    return this.clone(this.time, [...this.offsets, toDuration(duration).negate()]);
+    return this.clone({ offsets: [...this.offsets, toDuration(duration).negate()] });
   }
 
-  call(handler, args) {
+  withKey(key) {
+    return this.clone({ key });
+  }
+
+  call(handlerName, context) {
     return this.setTimer({
-      time: this.time.toUTC().toISO(),
-      intervalOffsets: this.offsets.map((i) => i.toJSON()),
-      handler,
-      args,
+      key: this.key,
+      delay: (this.time.toMillis() - DateTime.local().toMillis()) / 1000,
+      intervalOffsets: this.offsets.map((i) => i.toObject()),
+      handlerName,
+      context,
     });
   }
 }
