@@ -98,7 +98,7 @@ const inTheFuture = (spec) => {
 };
 
 function parseTimeOfDay(str) {
-  const matches = str.match(/^(\d{1,2})(?::?(\d{1,2}))?(?::?(\d{1,2}))?(am|pm)?$/);
+  const matches = str.match(/^(\d{1,2})(?::?(\d{1,2}))?(?::?(\d{1,2}))?(am?|pm?)?$/);
   if (!matches) {
     return null;
   }
