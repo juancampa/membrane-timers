@@ -1,28 +1,15 @@
 {
   "name": "@membrane/timers",
-  "description": "Ergonomic API to define timers by their time+interval. Supports calendar math. Based on luxon.",
-  "version": "0.3.1",
+  "description": "Ergonomic API to define timers by start time and repeat interval. Supports calendar math.",
+  "version": "0.4.1",
   "main": "src",
   "dependencies": {
-    "luxon": "^1.4.3"
+    "luxon": "2.3.2"
   },
   "devDependencies": {
-    "@babel/cli": "^7.1.2",
-    "@babel/core": "^7.1.2",
-    "@babel/node": "^7.0.0",
-    "@babel/plugin-proposal-class-properties": "^7.1.0",
-    "@babel/plugin-transform-flow-strip-types": "^7.0.0",
-    "@babel/preset-env": "^7.1.0",
-    "babel-core": "^7.0.0-bridge.0",
-    "babel-eslint": "^10.0.1",
-    "babel-jest": "^23.6.0",
-    "eslint": "^5.6.1",
-    "eslint-plugin-babel": "^5.2.1",
-    "jest": "^23.6.0",
-    "sane": "^4.0.1"
+    "jest": "28.1.0"
   },
   "scripts": {
-    "watch": "babel-node ./resources/watch.js",
     "test": "jest"
   }
 }

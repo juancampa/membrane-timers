@@ -1,5 +1,5 @@
-import { Scheduler } from '../';
-import { Settings, DateTime } from 'luxon';
+const { Scheduler } = require('../');
+const { Settings, DateTime } = require('luxon');
 
 // Freeze time for testing
 Settings.now = () => DateTime.fromJSDate(new Date('1987-10-16T00:00:00.000Z'));

@@ -67,7 +67,7 @@ const keyOrder = ['year', 'month', 'day', 'hour', 'minute', 'second', 'milliseco
 
 // Give a DateTime spec object, generates an object that matches the spec but
 // bound to the future  by increasing the element one greater than the greater
-// specified. If the spec specifies a day, but that the is in the pass, increase
+// specified. If the spec specifies a day, but that the is in the past, increase
 // the month by one from the current time.
 const inTheFuture = (spec) => {
   const now = DateTime.local();
