@@ -4,7 +4,7 @@
   "version": "0.4.1",
   "main": "src",
   "dependencies": {
-    "luxon": "2.3.2"
+    "luxon": "2.5.2"
   },
   "devDependencies": {
     "jest": "28.1.0"
